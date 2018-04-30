@@ -2,16 +2,14 @@ import math
 
 class Bitstream:
     def __init__(self):
-        self.buf = 0
-        self.len = 0
+        self.buf = []
 
     def write(self, x, in_data_bits_len):
         ''' read \in_data_bits_len bits from stream '''
         assert in_data_bits_len >= 0
-        mask = (1 << in_data_bits_len) - 1
-        self.buf <<= in_data_bits_len
-        self.buf |= (x & mask)
-        self.len += in_data_bits_len
+        temp = [x >> i for i in range(in_data_bits_len)]
+        temp = [t % 2 for t in temp]
+        self.buf.extend(temp)
 
     def writeall(self, in_table, in_data_bits_len):
         ''' write all data from \in_table to a stream'''
@@ -21,19 +19,18 @@ class Bitstream:
     def read(self, out_data_bits_len):
         ''' read \out_data_bits_len bits from stream '''
         assert out_data_bits_len >= 0
-        if self.len <= 0:
+        if len(self.buf) == 0:
             return None
-        mask = (1 << out_data_bits_len) - 1
-        offset = self.len - out_data_bits_len
-        readed = self.buf & (mask << offset)
-        ret = readed >> offset
-        self.buf -= readed
-        self.len -= out_data_bits_len
+        if len(self.buf) < out_data_bits_len:
+            out_data_bits_len = len(self.buf)
+        temp = [v << i for i, v in enumerate(self.buf[0:out_data_bits_len])]
+        del self.buf[0:out_data_bits_len]
+        ret = sum(temp)
         return ret
 
     def readall(self, out_data_bits_len):
         ''' read all data from stream in \out_data_bits_len chunks '''
-        out_len = math.floor(self.len/out_data_bits_len)
+        out_len = math.floor(len(self.buf)/out_data_bits_len)
         return [self.read(out_data_bits_len) for _ in range(out_len)]
 
 if __name__ == "__main__":
