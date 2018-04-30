@@ -5,14 +5,35 @@ import bitstream
 
 
 class Modulator:
-    def __init__(self):
+    def __init__(self, qam=16):
+        assert(int(math.sqrt(qam))**2 == int(qam))
         self.data_bits_len = 8
         self.rotation = 0.0
-        qam4_mod = np.array([-1.0+1.0j, 1.0+1.0j, -1.0-1.0j, 1.0-1.0j])
-        self.qam_mod = qam4_mod
+        qam4_mod = [-1.0-1.0j, 1.0-1.0j,
+                    -1.0+1.0j, 1.0+1.0j]
+        qam4_dem = [[0, 1],
+                    [2, 3]]
+        qam16_mod = [-3-3j, -1-3j, 1-3j, 3-3j,
+                     -3-1j, -1-1j, 1-1j, 3-1j,
+                     -3+1j, -1+1j, 1+1j, 3+1j,
+                     -3+3j, -1+3j, 1+3j, 3+3j]
+        qam16_dem = [[0, 1, 2, 3],
+                     [4, 5, 6, 7],
+                     [8, 9, 10, 11],
+                     [12, 13, 14, 15]]
+        if qam == 4:
+            self.qam_dem = qam4_dem
+            self.qam_mod = qam4_mod
+        elif qam == 16:
+            self.qam_dem = qam16_dem
+            self.qam_mod = qam16_mod
+        else:
+            dim = int(math.sqrt(qam))
+            self.qam_dem = [[x+y*dim for x in range(dim)] for y in range(dim)]
+            self.qam_mod = [x for x in range(dim*dim)]
+        self.qam_dem = np.array(self.qam_dem)
+        self.qam_mod = np.array(self.qam_mod)
         self.qam_mod /= math.sqrt(np.max(np.imag(self.qam_mod**2)))  # norm to one
-        self.qam_dem = np.array([[2, 3],
-                           [0, 1]])
 
     def iq_mod(self, symbol):
         """
@@ -30,15 +51,15 @@ class Modulator:
         codem in qam4 return symbol
         :rtype: int
         """
-        D = self.qam_dem.shape[0]  # srednica konstelacji
+        d0, d1 = self.qam_dem.shape
+        D = max(d0, d1)  # srednica konstelacji
         c = c * np.exp(-1.0j*self.rotation)  # back rotation
-        c = np.round(c * math.sqrt(D))  # -1..1
         assert -1.0 <= np.real(c) <= 1.0
         assert -1.0 <= np.imag(c) <= 1.0
-        i, q = np.real(c), np.imag(c)
-        i, q, = int((i+0.5*D)/D), int((q+0.5*D)/D)  # {0..D}
-        assert 0 <= i < 2
-        assert 0 <= q < 2
+        i, q = np.real(c), np.imag(c)  # -1..1
+        i, q = [int((v+1.0)*D/2) for v in (i, q)]  # {0..D}
+        assert 0 <= i < D
+        assert 0 <= q < D
         return self.qam_dem[q, i]
 
     def modulate(self, data):
@@ -60,7 +81,7 @@ class Modulator:
         return stream.readall(self.data_bits_len)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" or True:
     print("|===============================|")
     print("|        Bitstream demo         |")
     print("| Author: Karol Trzciński, 2018 |")
@@ -68,7 +89,7 @@ if __name__ == "__main__":
     print("")
 
     mod = Modulator()
-    data = [1, 2, 3, 5, 129]
+    data = [0, 1, 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53]
 
     mod_data = mod.modulate(data)
     dem_data = mod.demodulate(mod_data)
