@@ -6,7 +6,7 @@ import bitstream
 
 class Modulator:
     def __init__(self, qam=16):
-        assert(int(math.sqrt(qam))**2 == int(qam))
+        ''' :param: qam can be 4, 16, 64 '''
         self.data_bits_len = 8
         self.rotation = 0.0
         qam4_mod = [-1.0-1.0j, 1.0-1.0j,
@@ -29,8 +29,13 @@ class Modulator:
             self.qam_mod = qam16_mod
         else:
             dim = int(math.sqrt(qam))
-            self.qam_dem = [[x+y*dim for x in range(dim)] for y in range(dim)]
-            self.qam_mod = [x for x in range(dim*dim)]
+            self.qam_dem = [[x+y*dim
+                             for x in range(dim)]
+                            for y in range(dim)]
+            self.qam_mod = [-dim+2*int(x%dim)+1 + 1j*(2*int(x/dim)-dim+1)
+                             for x in range(dim*dim)]
+        print(self.qam_mod)
+        print(np.mat(self.qam_dem))
         self.qam_dem = np.array(self.qam_dem)
         self.qam_mod = np.array(self.qam_mod)
         self.qam_mod /= math.sqrt(np.max(np.imag(self.qam_mod**2)))  # norm to one
@@ -53,11 +58,13 @@ class Modulator:
         """
         d0, d1 = self.qam_dem.shape
         D = max(d0, d1)  # srednica konstelacji
+        R = 2**0.5/2
         c = c * np.exp(-1.0j*self.rotation)  # back rotation
         assert -1.0 <= np.real(c) <= 1.0
         assert -1.0 <= np.imag(c) <= 1.0
-        i, q = np.real(c), np.imag(c)  # -1..1
-        i, q = [int((v+1.0)*D/2) for v in (i, q)]  # {0..D}
+        i, q = np.real(c), np.imag(c)  # -1..1 circle
+        i, q = [(v+R)/R for v in (i, q)]  # 0..2 from square
+        i, q = [int(round(v*(D-1)/2)) for v in (i, q)]  # {0..D}
         assert 0 <= i < D
         assert 0 <= q < D
         return self.qam_dem[q, i]
